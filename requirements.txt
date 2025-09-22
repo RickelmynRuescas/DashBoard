@@ -1,0 +1,8 @@
+# Python 3.10–3.12
+streamlit==1.36.0
+pandas==2.2.2
+numpy==1.26.4
+plotly==5.22.0
+oracledb==2.4.1
+streamlit-lottie==0.0.5
+streamlit-timeline==0.0.2
