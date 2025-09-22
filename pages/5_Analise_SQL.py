@@ -1,55 +1,56 @@
 # pages/5_Analise_SQL.py
 # -*- coding: utf-8 -*-
 
-import io
-import numpy as np
+import base64
 import pandas as pd
 import plotly.express as px
 import streamlit as st
-import base64
 
-# --- FUNÇÃO DE BACKGROUND ---
-    
-def set_background_image_with_blur(image_file):
-    with open(image_file, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode()
-    st.markdown(
-        f"""
-        <style>
-        [data-testid="stAppViewContainer"] {{
-            position: relative;
-            z-index: 0;
-        }}
-        [data-testid="stAppViewContainer"]::before {{
-            content: "";
-            background-image: url("data:image/png;base64,{encoded}");
-            background-size: cover;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            background-position: center;
-            filter: blur(8px) brightness(0.5);
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: -1;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    
+# =========================
+# Config & estilo
+# =========================
+st.set_page_config(page_title="Análise via Oracle | Estoque Inteligente", page_icon="🗄️", layout="wide")
+
+def set_background_image_with_blur(image_file: str):
+    """Fundo com blur (leve e compatível)."""
+    try:
+        with open(image_file, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+        st.markdown(
+            f"""
+            <style>
+            [data-testid="stAppViewContainer"] {{
+                position: relative;
+                z-index: 0;
+            }}
+            [data-testid="stAppViewContainer"]::before {{
+                content: "";
+                background-image: url("data:image/png;base64,{encoded}");
+                background-size: cover;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+                background-position: center;
+                filter: blur(8px) brightness(0.5);
+                position: absolute;
+                inset: 0;
+                z-index: -1;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+    except Exception:
+        pass
+
 set_background_image_with_blur("BackGround/Dasa.png")
 
-st.set_page_config(page_title="Análise via Oracle | Estoque Inteligente", page_icon="🗄️", layout="wide")
 st.title("🗄️ Análise da Tabela de Insumos (Oracle)")
 
 # =========================
-# Lê credenciais (opcional)
+# Credenciais (secrets)
 # =========================
 def read_secrets():
+    """Lê credenciais do .streamlit/secrets.toml (se existir)."""
     try:
         sec = st.secrets["oracle"]
         return {
@@ -67,7 +68,7 @@ def read_secrets():
 defaults = read_secrets()
 
 # =========================
-# UI de conexão (Oracle)
+# UI de conexão
 # =========================
 with st.expander("⚙️ Conexão ao Oracle", expanded=(defaults is None)):
     c1, c2, c3 = st.columns([1, 0.6, 0.6])
@@ -84,11 +85,11 @@ with st.expander("⚙️ Conexão ao Oracle", expanded=(defaults is None)):
         service = None
 
     c4, c5, c6 = st.columns([0.7, 0.7, 0.7])
-    user = c4.text_input("Usuário", value=(defaults["user"] if defaults else "rm556055"))
+    user = c4.text_input("Usuário", value=(defaults["user"] if defaults else "rm000000"))
     password = c5.text_input("Senha", type="password", value=(defaults["password"] if defaults else ""))
-    schema = c6.text_input("Schema (OWNER)", value=(defaults["schema"] if defaults else "RM556055")).strip().upper()
+    schema = c6.text_input("Schema (OWNER)", value=(defaults["schema"] if defaults else "RM000000")).strip().upper()
 
-st.caption("Dica: use `.streamlit/secrets.toml` para salvar as credenciais (seção [oracle]).")
+st.caption("Dica: use `.streamlit/secrets.toml` (seção [oracle]) para não digitar credenciais sempre.")
 
 # =========================
 # Conexão & consulta
@@ -102,7 +103,7 @@ def _connect(_host, _port, _service, _sid, _user, _password):
     return oracledb.connect(user=_user, password=_password, dsn=dsn)
 
 @st.cache_data(show_spinner=True)
-def query_insumos(_host, _port, _service, _sid, _user, _password, _schema):
+def query_insumos(_host, _port, _service, _sid, _user, _password, _schema) -> pd.DataFrame:
     import oracledb
     conn = _connect(_host, _port, _service, _sid, _user, _password)
     sql = f"""
@@ -115,17 +116,21 @@ def query_insumos(_host, _port, _service, _sid, _user, _password, _schema):
     df = pd.read_sql(sql, conn)
     conn.close()
 
-    # Normalização robusta
+    # Normalização
     df.columns = [str(c).upper().strip() for c in df.columns]
-
     if "QUANTIDADE" in df.columns:
         df["QUANTIDADE"] = pd.to_numeric(df["QUANTIDADE"], errors="coerce").fillna(0).astype(int)
-
     for c in ("INSUMO", "EXAME"):
         if c in df.columns:
             df[c] = df[c].astype("string").fillna("").str.strip()
-
     return df
+
+def _dados_exemplo() -> pd.DataFrame:
+    return pd.DataFrame({
+        "INSUMO": ["Seringa 5ml", "Swab estéril", "Tubo EDTA 4ml"],
+        "QUANTIDADE": [100, 60, 240],
+        "EXAME": ["Hemograma", "PCR", "Hemograma"],
+    })
 
 # -------------------------
 # Botões de ação
@@ -144,12 +149,32 @@ if conectar:
         st.session_state["insumos_df"] = df
         st.success(f"✅ {len(df)} registros carregados de `{schema}.INSUMOS`.")
     except ModuleNotFoundError:
-        st.error("Pacote `oracledb` não está instalado neste ambiente. Instale com: `pip install oracledb`")
+        st.error("Pacote `oracledb` não está instalado. Instale com: `pip install oracledb`")
     except Exception as e:
-        st.error("❌ Não foi possível conectar ou consultar o Oracle.")
-        st.exception(e)
+        try:
+            import oracledb  # para inspecionar códigos ORA
+            if isinstance(e, oracledb.DatabaseError) and getattr(e, "args", None):
+                err = e.args[0]
+                code = getattr(err, "code", None)
+                msg = getattr(err, "message", str(e))
 
-# Se já há dados na sessão, usa; assim o slider e filtros não resetam a página
+                if code == 28000:
+                    st.error("🚫 ORA-28000: sua CONTA do Oracle está **bloqueada**. "
+                             "Peça o desbloqueio ao DBA/professor e troque a senha.")
+                    st.info("Carregando **dados de exemplo** para seguir a análise…")
+                    st.session_state["insumos_df"] = _dados_exemplo()
+                elif code == 1017:
+                    st.error("❌ ORA-01017: usuário/senha inválidos. Confira credenciais.")
+                else:
+                    st.error(f"❌ Erro Oracle ({code}): {msg}")
+            else:
+                st.error("❌ Não foi possível conectar ou consultar o Oracle.")
+                st.exception(e)
+        except Exception:
+            st.error("❌ Falha na conexão com o Oracle.")
+            st.exception(e)
+
+# Se já há dados em sessão, usa
 df = st.session_state.get("insumos_df")
 
 st.divider()
@@ -174,24 +199,45 @@ k4.metric("Mediana de quantidade", f"{qtd_mediana:,}".replace(",", "."))
 st.divider()
 
 # =========================
-# Filtros avançados
+# Filtros e visão (slider robusto)
 # =========================
 st.subheader("Filtros e visão")
 colF1, colF2, colF3 = st.columns([0.4, 0.3, 0.3])
 
 with colF1:
     termo = st.text_input("🔍 Filtrar por nome do insumo (contém)", "")
+
 with colF2:
     exames_unicos = ["(todos)"] + sorted(df["EXAME"].dropna().unique().tolist()) if "EXAME" in df else ["(todos)"]
     exame_sel = st.selectbox("Filtrar por exame", exames_unicos)
-with colF3:
-    if "QUANTIDADE" in df:
-        qmin, qmax = int(df["QUANTIDADE"].min()), int(df["QUANTIDADE"].max())
-    else:
-        qmin, qmax = 0, 0
-    faixa = st.slider("Faixa de quantidade", qmin, qmax, (qmin, qmax))
 
-# Multiselect de insumos (útil em estoques grandes)
+with colF3:
+    # calcula min/max de forma segura
+    if "QUANTIDADE" in df and not df["QUANTIDADE"].dropna().empty:
+        qmin = int(df["QUANTIDADE"].min())
+        qmax = int(df["QUANTIDADE"].max())
+    else:
+        qmin, qmax = 0, 1  # fallback
+
+    # evita min == max
+    if qmin == qmax:
+        qmin_adj, qmax_adj = qmin - 1, qmax + 1
+        help_txt = "Só há um valor de QUANTIDADE na base; ampliamos o intervalo para habilitar o filtro."
+    else:
+        qmin_adj, qmax_adj = qmin, qmax
+        help_txt = None
+
+    faixa = st.slider(
+        "Faixa de quantidade",
+        min_value=int(qmin_adj),
+        max_value=int(qmax_adj),
+        value=(int(qmin_adj), int(qmax_adj)),
+        step=1,
+        help=help_txt,
+        key="faixa_qtd",
+    )
+
+# Multiselect de insumos
 insumos_opts = sorted(df["INSUMO"].dropna().unique().tolist()) if "INSUMO" in df else []
 insumos_sel = st.multiselect("Selecionar insumos específicos (opcional)", insumos_opts, default=[])
 
@@ -224,7 +270,7 @@ st.download_button(
 st.divider()
 
 # =========================
-# Gráficos — seleção e modos
+# Visualizações
 # =========================
 st.subheader("Visualizações")
 
@@ -246,7 +292,7 @@ with st.container():
         fig1.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=380)
         st.plotly_chart(fig1, use_container_width=True)
 
-# 2) Agregações flexíveis: escolha eixo e gráfico
+# 2) Agregações flexíveis
 st.markdown("### 🧭 Exploração por agregação")
 colA, colB, colC = st.columns([0.4, 0.3, 0.3])
 with colA:
@@ -259,27 +305,19 @@ with colC:
 if df_view.empty:
     st.info("Ajuste os filtros acima para visualizar as agregações.")
 else:
-    agg_map = {
-        "Soma": "sum",
-        "Média": "mean",
-        "Mediana": "median",
-        "Máximo": "max",
-        "Mínimo": "min",
-    }
+    agg_map = {"Soma": "sum", "Média": "mean", "Mediana": "median", "Máximo": "max", "Mínimo": "min"}
     agg_df = (
         df_view.groupby(eixo, as_index=False)["QUANTIDADE"]
                .agg(agg_map[metrica])
                .rename(columns={"QUANTIDADE": metrica})
-               .sort_values(metrica, ascending=(metrica=="Mínimo"))
+               .sort_values(metrica, ascending=(metrica == "Mínimo"))
     )
-
     if tipo == "Barra":
         fig = px.bar(agg_df, x=eixo, y=metrica, title=f"{metrica} de QUANTIDADE por {eixo}")
     elif tipo == "Pizza":
         fig = px.pie(agg_df, names=eixo, values=metrica, title=f"{metrica} por {eixo}")
-    else:  # Treemap
+    else:
         fig = px.treemap(agg_df, path=[eixo], values=metrica, title=f"{metrica} por {eixo}")
-
     fig.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=420)
     st.plotly_chart(fig, use_container_width=True)
 
@@ -291,8 +329,7 @@ if exames_comp:
     if df_comp.empty:
         st.warning("Nenhum dado após os filtros/seleção.")
     else:
-        # agrega por insumo e exame
-        pivot = (df_comp.groupby(["INSUMO", "EXAME"], as_index=False)["QUANTIDADE"].sum())
+        pivot = df_comp.groupby(["INSUMO", "EXAME"], as_index=False)["QUANTIDADE"].sum()
         fig3 = px.bar(pivot, x="INSUMO", y="QUANTIDADE", color="EXAME", barmode="stack",
                       title="Quantidade por Insumo (exames selecionados)")
         fig3.update_layout(margin=dict(l=10, r=10, t=40, b=10), height=420)
