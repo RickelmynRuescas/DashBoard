@@ -3,38 +3,15 @@
 
 import os
 import time
-import base64
 import pandas as pd
 import streamlit as st
+import base64
 
-# ----------------- Config (deve vir primeiro) -----------------
-st.set_page_config(
-    page_title="Introdução | Estoque Inteligente (QR → ML)",
-    page_icon="📦",
-    layout="wide",
-)
-
-# >>> CSS: remove barra/preenchimento superior e borda das abas <<<
-st.markdown("""
-<style>
-.block-container { padding-top: 1rem !important; }
-div[role="separator"]:first-of-type { display: none !important; }
-.stTabs [data-baseweb="tab-list"] { border-bottom: 0 !important; }
-</style>
-""", unsafe_allow_html=True)
-
-# ----------------- Background otimizado -----------------
-@st.cache_data(show_spinner=False)
-def _encode_image(path: str) -> str | None:
-    if not os.path.exists(path):
-        return None
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
-
-def set_background_image_with_blur(image_file: str):
-    encoded = _encode_image(image_file)
-    if not encoded:
-        return
+# --- FUNÇÃO DE BACKGROUND ---
+    
+def set_background_image_with_blur(image_file):
+    with open(image_file, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode()
     st.markdown(
         f"""
         <style>
@@ -47,19 +24,22 @@ def set_background_image_with_blur(image_file: str):
             background-image: url("data:image/png;base64,{encoded}");
             background-size: cover;
             background-repeat: no-repeat;
-            /* usar 'scroll' para reduzir custo de renderização */
-            background-attachment: scroll;
+            background-attachment: fixed;
             background-position: center;
             filter: blur(8px) brightness(0.5);
             position: absolute;
-            inset: 0;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             z-index: -1;
         }}
         </style>
         """,
         unsafe_allow_html=True
     )
-
+    
+    
 set_background_image_with_blur("BackGround/Dasa.png")
 
 # ======= (Opcional) Lottie para dar vida =======
@@ -69,20 +49,20 @@ try:
 except Exception:
     _HAS_LOTTIE = False
 
+# ----------------- Config -----------------
+st.set_page_config(
+    page_title="Introdução | Estoque Inteligente (QR → ML)",
+    page_icon="📦",
+    layout="wide",
+)
+
 # ----------------- Header -----------------
 colA, colB = st.columns([0.75, 0.25])
 with colA:
     st.title("📦 Estoque Inteligente em Tempo Real (QR → ML)")
     st.caption("Automação do apontamento de consumo de insumos via câmera — DASA")
 
-# ----------------- Objetivo -----------------
-st.subheader("Objetivo")
-st.write(
-    "Dar **visibilidade em tempo real** ao consumo de insumos e **automatizar** entradas/saídas, "
-    "reduzindo o erro humano e suportando decisões de **reposição** e **validade**."
-)
-
-# ----------------- Infográfico do Pipeline -----------------
+    # ----------------- Infográfico do Pipeline (N O V O) -----------------
 st.divider()
 st.subheader("🔎 Pipeline de Captura → Detecção → Reconhecimento → Informação em Tempo Real")
 
@@ -105,6 +85,14 @@ with st.expander("O que este pipeline entrega na prática?"):
 - **(4) Informação em Tempo Real:** atualiza **estoque**, sinaliza **mínimos** e **validade**, e registra a **baixa/entrada**.
 """)
 
+
+# ----------------- Objetivo -----------------
+st.subheader("Objetivo")
+st.write(
+    "Dar **visibilidade em tempo real** ao consumo de insumos e **automatizar** entradas/saídas, "
+    "reduzindo o erro humano e suportando decisões de **reposição** e **validade**."
+)
+
 # ----------------- Abas: Ideia Central -----------------
 tab_qr, tab_ml = st.tabs(["🟩 Fase 1 — QR/Barcode (agora)", "🟦 Fase 2 — Machine Learning (futuro)"])
 
@@ -117,7 +105,7 @@ A câmera lê o **QR/código de barras** do insumo ao passar por uma área de le
 - Baixo custo e alta viabilidade.  
 - Reduz digitação e erros imediatamente.  
 - Serve como fallback mesmo quando houver ML.
-""")
+    """)
     pros, cons = st.columns(2)
     with pros:
         st.success("**Prós:** simples, barato, confiável; ganho rápido de produtividade.")
@@ -127,13 +115,13 @@ A câmera lê o **QR/código de barras** do insumo ao passar por uma área de le
 with tab_ml:
     st.markdown("""
 **Como funciona (evolução):**  
-Usamos **visão computacional** para **classificar/detectar** o insumo pela imagem (embalagem, formato, rótulo), **sem necessidade de etiqueta**.  
-Com **tracking + linha virtual**, registramos **entrada × saída** automaticamente.
+Usamos **visão computacional** para **classificar/detectar** o insumo pela imagem (embalagem, formato, rótulo), "
+"sem necessidade de etiqueta. Com **tracking + linha virtual**, registramos **entrada × saída** automaticamente.
 
 **Por que evoluir?**  
 - Remove dependência de etiqueta.  
 - Reconhece múltiplos itens na cena, com contagem.
-""")
+    """)
     pros2, cons2 = st.columns(2)
     with pros2:
         st.success("**Prós:** elimina etiquetas; visão mais autônoma e fluida.")
@@ -144,10 +132,12 @@ Com **tracking + linha virtual**, registramos **entrada × saída** automaticame
 st.divider()
 st.subheader("📊 Visão rápida (mock de KPIs)")
 
+# Parâmetros de simulação
 col1, col2, col3, col4 = st.columns(4)
 with col1:
     eventos_mes = st.number_input("Eventos/mês (saídas/entradas)", 100, 100000, 5000, step=100)
 with col2:
+    # CORREÇÃO: slider em porcentagem inteira 0–20 e conversão para fração
     erro_manual_pct = st.slider("Erro manual atual (estimado)", 0, 20, 8, 1, format="%d%%")
     erro_manual = erro_manual_pct / 100.0
 with col3:
@@ -155,9 +145,10 @@ with col3:
 with col4:
     adocao_ml = st.slider("Adoção ML (fase 2)", 0, 100, 0, 5, format="%d%%")
 
+# Cálculo simples
 erros_atuais = int(eventos_mes * erro_manual)
-redu_qr = int(erros_atuais * (adocao_qr/100) * 0.75)
-redu_ml = int(erros_atuais * (adocao_ml/100) * 0.90)
+redu_qr = int(erros_atuais * (adocao_qr/100) * 0.75)   # suposição: QR reduz 75% dos erros nas áreas cobertas
+redu_ml = int(erros_atuais * (adocao_ml/100) * 0.90)   # suposição: ML reduz 90% dos erros nas áreas cobertas
 erros_proj = max(erros_atuais - redu_qr - redu_ml, 0)
 
 m1, m2, m3 = st.columns(3)
@@ -165,6 +156,7 @@ m1.metric("Erros/mês (estimado - hoje)", f"{erros_atuais:,}".replace(",", "."))
 m2.metric("Erros/mês (projeção com QR→ML)", f"{erros_proj:,}".replace(",", "."), delta=f"-{(erros_atuais-erros_proj):,}".replace(",", "."))
 m3.metric("Automação prevista", f"{adocao_qr + adocao_ml}%")
 
+# Gráfico
 df_plot = pd.DataFrame({
     "Cenário": ["Hoje (manual)", "Com QR", "Com QR + ML"],
     "Erros": [erros_atuais, max(erros_atuais - redu_qr, 0), erros_proj],
@@ -202,13 +194,15 @@ with colL:
 
 with colR:
     st.markdown("**Fluxo esperado:**")
-    for s in [
-        "1) Captura de imagem (câmera IP/USB)",
-        "2) Reconhecimento (QR) ou Classificação/Detecção (ML)",
+    steps = [
+        "1) Captura de imagem (câmera IP/USB)", 
+        "2) Reconhecimento (QR) ou Classificação/Detecção (ML)",    
         "3) Regras de negócio (baixa/entrada, mínimos, validade)",
         "4) Persistência (log/DB) e atualização de painel",
         "5) KPIs e alertas em tempo real",
-    ]:
+    ]
+    for s in steps:
         st.write("• " + s)
 
+# ----------------- Navegação -----------------
 st.info("Esta página apresenta a **introdução**. As próximas páginas aprofundam solução, protótipos e métricas.")
