@@ -59,7 +59,7 @@ st.set_page_config(
 # ----------------- Header -----------------
 colA, colB = st.columns([0.75, 0.25])
 with colA:
-    st.title("📦 Estoque Inteligente em Tempo Real (QR → ML)")
+    st.title("📦 StockFlow - Estoque Inteligente em Tempo Real (QR → ML)")
     st.caption("Automação do apontamento de consumo de insumos via câmera — DASA")
 
     # ----------------- Infográfico do Pipeline (N O V O) -----------------
@@ -206,3 +206,4 @@ with colR:
 
 # ----------------- Navegação -----------------
 st.info("Esta página apresenta a **introdução**. As próximas páginas aprofundam solução, protótipos e métricas.")
+
