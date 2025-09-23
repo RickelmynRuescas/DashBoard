@@ -8,7 +8,6 @@ import plotly.express as px
 import base64
 
 # --- FUNÇÃO DE BACKGROUND ---
-    
 def set_background_image_with_blur(image_file):
     with open(image_file, "rb") as f:
         encoded = base64.b64encode(f.read()).decode()
@@ -38,8 +37,7 @@ def set_background_image_with_blur(image_file):
         """,
         unsafe_allow_html=True
     )
-    
-    
+
 set_background_image_with_blur("BackGround/Dasa.png")
 
 # ----------------- Config -----------------
@@ -54,13 +52,12 @@ st.title("📊 Problema & Solução — Aprofundamento")
 st.caption("Foco em divergências reais (SAP × estoque físico), causas e como o fluxo automatizado resolve")
 
 # ============================================================
-# 1) Auditoria de divergências (EDITÁVEL)
+# 1) Auditoria de divergências (apenas resultado)
 # ============================================================
 st.subheader("1) Auditoria rápida de divergências (SAP × Real)")
-st.markdown(
-    "Edite valores conforme a realidade de uma unidade para ver **delta** e **itens críticos**."
-)
+st.markdown("Abaixo, o **resultado** da auditoria com deltas e itens críticos.")
 
+# Base fixa (sem editor)
 dados_base = pd.DataFrame({
     "Insumo": ["Seringa 5ml", "Swab estéril", "Tubo EDTA 4ml", "Luva nitrílica G", "Tubo Citrato 3,2%"],
     "Estoque SAP": [120, 85, 200, 150, 60],
@@ -68,24 +65,20 @@ dados_base = pd.DataFrame({
     "Mínimo Operacional": [80, 50, 150, 120, 50],
 })
 
-editavel = st.data_editor(
-    dados_base,
-    use_container_width=True,
-    num_rows="dynamic",
-    key="auditoria_editor",
-)
-
-df = editavel.copy()
+# Apenas a tabela de RESULTADO (sem a primeira tabela editável)
+df = dados_base.copy()
 df["Delta (Real - SAP)"] = df["Estoque Real"] - df["Estoque SAP"]
 df["Abaixo do Mínimo?"] = np.where(df["Estoque Real"] < df["Mínimo Operacional"], "⚠️ Sim", "OK")
 
 st.markdown("**Resultado da auditoria:**")
 st.dataframe(df, use_container_width=True)
 
-# gráfico de barras: SAP vs Real
+# Gráfico de barras: SAP vs Real
 fig = px.bar(
-    df.melt(id_vars=["Insumo"], value_vars=["Estoque SAP", "Estoque Real"], var_name="Origem", value_name="Quantidade"),
-    x="Insumo", y="Quantidade", color="Origem", barmode="group", title="Comparativo de Estoque: SAP × Real"
+    df.melt(id_vars=["Insumo"], value_vars=["Estoque SAP", "Estoque Real"],
+            var_name="Origem", value_name="Quantidade"),
+    x="Insumo", y="Quantidade", color="Origem", barmode="group",
+    title="Comparativo de Estoque: SAP × Real"
 )
 st.plotly_chart(fig, use_container_width=True)
 
@@ -116,7 +109,7 @@ with col_auto:
 st.info("Conclusão: a automação **ataca a raiz** da divergência — o **atraso e erro humano** no apontamento.")
 
 # ============================================================
-# 3) Causa → Efeito (por que dói) e como a solução mitiga
+# 3) Causa → Efeito e Mitigação
 # ============================================================
 st.subheader("3) Causa → Efeito e Mitigação")
 
@@ -149,7 +142,7 @@ with c3:
     )
 
 # ============================================================
-# 4) Critérios de sucesso (sem repetir KPIs da Intro)
+# 4) Critérios de sucesso
 # ============================================================
 st.subheader("4) Critérios de sucesso (definição clara)")
 st.markdown(
